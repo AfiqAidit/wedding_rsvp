@@ -1,0 +1,14 @@
+{
+  "name": "wedding-rsvp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One-page RSVP for the wedding: guest name + number of pax. No dependencies.",
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>RSVP list · host only</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="page admin">
+    <h1>RSVP list</h1>
+
+    <section class="card" id="login">
+      <label for="pass">Passcode</label>
+      <input id="pass" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <p class="err" id="err" role="alert" hidden></p>
+      <button class="btn" id="go" type="button">Show responses</button>
+    </section>
+
+    <section id="list" hidden>
+      <div class="totals">
+        <div><b id="tGuests">0</b><span>guests (pax)</span></div>
+        <div><b id="tResp">0</b><span>hadir / jumlah respons</span></div>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th class="n">Pax</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="row">
+        <button class="btn ghost" id="refresh" type="button">Refresh</button>
+        <button class="btn" id="csv" type="button">Download CSV</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+    let pass = "";
+    let rsvps = [];
+
+    function fmt(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    }
+
+    function render() {
+      const body = $("rows");
+      body.replaceChildren();
+      for (const r of rsvps) {
+        const tr = document.createElement("tr");
+        const name = document.createElement("td");
+        name.className = "name";
+        name.textContent = r.name; // textContent: guest-typed names are never parsed as HTML
+        const small = document.createElement("small");
+        small.textContent = fmt(r.created_at);
+        name.append(small);
+        if (r.message) {
+          const m = document.createElement("small");
+          m.textContent = "“" + r.message + "”";
+          name.append(m);
+        }
+        const n = document.createElement("td");
+        n.className = "n";
+        n.textContent = r.attending === false ? "Tidak hadir" : r.pax;
+        tr.append(name, n);
+        body.append(tr);
+      }
+      const yes = rsvps.filter((r) => r.attending !== false);
+      $("tGuests").textContent = yes.reduce((s, r) => s + r.pax, 0);
+      $("tResp").textContent = yes.length + " / " + rsvps.length;
+    }
+
+    async function load() {
+      $("err").hidden = true;
+      try {
+        const res = await fetch("/api/rsvps", { headers: { "x-admin-passcode": pass } });
+        if (res.status === 401) throw new Error("Wrong passcode.");
+        if (res.status === 503) throw new Error("ADMIN_PASSCODE is not set on the server.");
+        if (!res.ok) throw new Error("Could not load. Try again.");
+        rsvps = (await res.json()).rsvps;
+        $("login").hidden = true;
+        $("list").hidden = false;
+        render();
+      } catch (e) {
+        $("err").textContent = e.message === "Failed to fetch" ? "No connection." : e.message;
+        $("err").hidden = false;
+      }
+    }
+
+    $("go").addEventListener("click", () => { pass = $("pass").value; load(); });
+    $("pass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("go").click(); });
+    $("refresh").addEventListener("click", load);
+
+    $("csv").addEventListener("click", () => {
+      // Names starting with = + - @ would run as formulas in Excel/Sheets, so prefix them with an apostrophe.
+      const cell = (v) => {
+        let s = String(v);
+        if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return '"' + s.replaceAll('"', '""') + '"';
+      };
+      const lines = [
+        "name,attending,pax,message,submitted_at",
+        ...rsvps.map((r) => [cell(r.name), r.attending === false ? "no" : "yes", r.pax, cell(r.message || ""), cell(r.created_at)].join(",")),
+      ];
+      const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv" }));
+      const a = Object.assign(document.createElement("a"), { href: url, download: "rsvp.csv" });
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
