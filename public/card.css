@@ -60,11 +60,15 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 }
 
 /* ---------- cover ---------- */
+/* The cover is a fixed overlay: before Buka it is the only thing on screen (no nav, no music button);
+   Buka zooms it through the oval into the card, then it is removed. */
 .cover {
-  position: relative; z-index: 1;
-  min-height: 100svh;
+  position: fixed; inset: 0; z-index: 40;
+  width: 100%; max-width: 430px; margin: 0 auto;
+  overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 72px 24px 56px;
+  padding: 24px 24px 24px;
+  will-change: transform, opacity;
 }
 .kicker {
   margin: 0;
@@ -141,9 +145,9 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   position: sticky; top: 0; height: 100svh; margin-bottom: -100svh;
   pointer-events: none; overflow: hidden; z-index: 0;
 }
-.glow { position: absolute; width: 324px; height: 324px; border-radius: 50%; }
-.ga { left: -54px; top: 37px; background: radial-gradient(closest-side, rgba(199, 154, 62, 0.45), transparent); opacity: 0.4; }
-.gb { right: -72px; bottom: 0; background: radial-gradient(closest-side, rgba(240, 207, 134, 0.3), transparent); opacity: 0.14; }
+.glow { position: absolute; width: 324px; height: 324px; border-radius: 50%; will-change: transform; }
+.ga { left: -54px; top: 37px; background: radial-gradient(closest-side, rgba(199, 154, 62, 0.45), transparent); opacity: 0.4; transform: translateY(calc(var(--sy, 0) * -0.12px)); }
+.gb { right: -72px; bottom: 0; background: radial-gradient(closest-side, rgba(240, 207, 134, 0.3), transparent); opacity: 0.14; transform: translateY(calc(var(--sy, 0) * 0.06px)); }
 .petal {
   position: absolute; width: 14px; height: 22px; opacity: 0;
   background: rgba(240, 207, 134, 0.55);
@@ -184,10 +188,15 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 }
 .body { margin: 12px 0 0; font-size: 16px; line-height: 1.6; }
 .gn {
-  font-weight: 600; color: var(--text);
+  font-weight: 600;
   padding-bottom: 0.04em;
   background: linear-gradient(rgba(199, 154, 62, 0.55), rgba(199, 154, 62, 0.55)) 0 100% / 100% 1px no-repeat;
 }
+/* Greeting: words light up one by one once the section appears; names get their underline drawn after. */
+.js .body .w { color: rgba(246, 232, 220, 0.26); transition: color 0.6s ease calc(0.55s + var(--i, 0) * 0.055s); }
+.js .fxs.in .body .w { color: var(--text); }
+.js .body .gn { background-size: 0 1px; transition: color 0.6s ease calc(0.55s + var(--i, 0) * 0.055s), background-size 0.9s var(--out) calc(0.9s + var(--i, 0) * 0.055s); }
+.js .fxs.in .body .gn { background-size: 100% 1px; }
 
 .divider { display: flex; justify-content: center; margin: 0 0 24px; color: var(--accent); }
 .divider svg { width: 144px; height: 22px; }
@@ -206,7 +215,8 @@ h2 {
 .spread { display: flex; flex-direction: column; align-items: center; }
 .spread p { margin: 0; }
 .s-kicker { font-size: 12.8px; font-weight: 600; letter-spacing: 0.9em; text-indent: 0.9em; text-transform: uppercase; color: var(--accent); line-height: 1.6; }
-.s-day { margin-top: 9.6px !important; font-family: var(--display); font-size: 128px; line-height: 1; color: var(--primary); font-variant-numeric: lining-nums; }
+.mask { display: block; margin: 9.6px 0 0 !important; overflow: hidden; }
+.s-day { display: block; font-family: var(--display); font-size: 128px; line-height: 1; color: var(--primary); font-variant-numeric: lining-nums; }
 .s-line { margin-top: 8px !important; font-family: var(--display); font-size: 33.6px; line-height: 1.1; color: var(--primary); font-variant-numeric: lining-nums; }
 .s-hijri { margin-top: 6.4px !important; letter-spacing: 0.04em; color: var(--accent); }
 .s-sub { margin-top: 16px !important; letter-spacing: 0.06em; color: var(--muted); }
@@ -312,12 +322,18 @@ textarea.input { resize: vertical; min-height: 92px; }
 /* ---------- finale ---------- */
 .finale { padding: 40px 0 8px; }
 .thanks-l { margin: 0; font-size: 15.2px; letter-spacing: 0.04em; }
-.f-title { margin: 12px 0 0; font-family: var(--display); font-size: 41.6px; line-height: 1.1; color: var(--primary); }
-.replay { margin: 28px 0 0; padding-bottom: 96px; }
+.finale .mask { margin-top: 12px !important; }
+.f-title { display: block; font-family: var(--display); font-size: 41.6px; line-height: 1.2; color: var(--primary); }
+.replay { margin: 28px 0 0; padding-bottom: 110px; }
 .replay .btn-o { width: auto; padding: 5.6px 22px; }
 
 /* ---------- quick bar + music ---------- */
-.quickbar { position: sticky; bottom: 12px; z-index: 25; margin-top: -56px; padding: 0 12px; }
+.quickbar {
+  position: sticky; bottom: 12px; z-index: 25; margin-top: -56px; padding: 0 12px;
+  opacity: 0; transform: translateY(140%); pointer-events: none;
+  transition: transform 1s var(--out) 0.1s, opacity 0.6s ease 0.1s;
+}
+[data-ready="true"] .quickbar { opacity: 1; transform: none; pointer-events: auto; }
 .qb-inner {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
   max-width: 416px; margin: 0 auto; padding: 4.8px;
@@ -346,15 +362,93 @@ textarea.input { resize: vertical; min-height: 92px; }
 .music .m-pause { display: none; }
 .music[aria-pressed="true"] .m-play { display: none; }
 .music[aria-pressed="true"] .m-pause { display: block; }
+.music-dock .music { scale: 0; transition: scale 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.45s; }
+[data-ready="true"] .music-dock .music { scale: 1; }
 .music-dock.on .music { animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 4px 22px -2px var(--primary); } }
 
-/* ---------- reveal ---------- */
-.js .rv { opacity: 0; transform: translateY(14px); transition: opacity 0.8s var(--ease) var(--d, 0s), transform 0.8s var(--ease) var(--d, 0s); }
-.js .rv.in { opacity: 1; transform: none; }
+/* =====================================================================
+   Scroll effects. Each section (.fxs) gets .in when it scrolls into view, which
+   plays its pieces in order (--d is each piece's delay). Same recipe as the reference:
+   text rises, strokes draw themselves, big type slides out of a mask, cards open outward.
+   ===================================================================== */
+:root { --out: cubic-bezier(0.16, 1, 0.3, 1); --back: cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* rise + fade */
+.js .fx { opacity: 0; transform: translateY(var(--y, 46px)); transition: opacity 0.9s var(--out) var(--d, 0s), transform 1.1s var(--out) var(--d, 0s); }
+.js .fxs.in .fx { opacity: 1; transform: none; }
+
+/* divider and icon draw themselves */
+.js .fx-draw :is(path, circle, rect, ellipse) {
+  stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0;
+  transition: stroke-dashoffset 1.6s cubic-bezier(0.65, 0, 0.35, 1) var(--d, 0s), opacity 0s linear var(--d, 0s);
+}
+.js .fx-draw .emblem :is(path, circle, rect) { --d: 0.35s; transition-duration: 1.7s, 0s; }
+.js .fxs.in .fx-draw :is(path, circle, rect, ellipse) { stroke-dashoffset: 0; opacity: 1; }
+
+/* cards open outward from the middle */
+.js .fx-card {
+  opacity: 0; transform: translateY(70px); clip-path: inset(22% 8% round 28px);
+  transition: opacity 0.8s var(--out) var(--d, 0s), transform 1.2s var(--out) var(--d, 0s), clip-path 1.3s var(--out) var(--d, 0s);
+}
+.js .fxs.in .fx-card { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 18px); }
+.js .fx-kids > :not(.shine) {
+  opacity: 0; transform: translateY(16px);
+  transition: opacity 0.7s var(--out) calc(var(--d, 0s) + 0.35s + var(--i, 0) * 0.08s), transform 0.8s var(--out) calc(var(--d, 0s) + 0.35s + var(--i, 0) * 0.08s);
+}
+.js .fxs.in .fx-kids > :not(.shine) { opacity: 1; transform: none; }
+.js .countdown .cell { opacity: 0; transform: translateY(-50%); transition: opacity 0.7s var(--out) calc(var(--d, 0s) + 0.3s), transform 0.9s var(--out) calc(var(--d, 0s) + 0.3s); }
+.js .countdown .cell:nth-child(2) { transition-delay: calc(var(--d, 0s) + 0.4s); }
+.js .countdown .cell:nth-child(3) { transition-delay: calc(var(--d, 0s) + 0.5s); }
+.js .countdown .cell:nth-child(4) { transition-delay: calc(var(--d, 0s) + 0.6s); }
+.js .fxs.in .countdown .cell { opacity: 1; transform: none; }
+
+/* names: ampersand grows from the middle */
+.js .amp .line { transform: scaleX(0); transition: transform 1s var(--out) 0.55s; }
+.js .amp .line.l { transform-origin: 100% 50%; }
+.js .amp .line.r { transform-origin: 0 50%; }
+.js .amp .love { opacity: 0; transform: scale(0); transition: opacity 0.5s ease 0.55s, transform 0.9s var(--back) 0.55s; }
+.js .fxs.in .amp .line { transform: none; }
+.js .fxs.in .amp .love { opacity: 1; transform: none; }
+
+/* big date: letters-spacing closes in, day slides up out of a mask, month opens from the centre */
+.js .fx-track { opacity: 0; letter-spacing: 1.5em; transition: opacity 0.9s var(--out) 0.45s, letter-spacing 1.4s var(--out) 0.45s; }
+.js .fxs.in .fx-track { opacity: 1; letter-spacing: 0.9em; }
+.js .mask .s-day, .js .mask .f-title { transform: translateY(110%); transition: transform 1.3s var(--out) 0.55s; }
+.js .fxs.in .mask .s-day, .js .fxs.in .mask .f-title { transform: none; }
+.js .finale .mask .f-title { transition-delay: 0.3s; }
+.js .fx-open { clip-path: inset(-20% 50%); transition: clip-path 1.3s var(--out) 0.8s; }
+.js .fxs.in .fx-open { clip-path: inset(-20% 0%); }
+
+/* venue wipes in left to right */
+.js .fx-wipe { clip-path: inset(-15% 110% -15% -10%); transition: clip-path 1.2s var(--out) 0.5s; }
+.js .fxs.in .fx-wipe { clip-path: inset(-15% -10% -15% -10%); }
+
+/* dress swatch spins in, small buttons pop */
+.js .fx-spin { opacity: 0; transform: rotate(-90deg) scale(0.4); transition: opacity 0.6s ease var(--d, 0s), transform 1s var(--back) var(--d, 0s); }
+.js .fxs.in .fx-spin { opacity: 1; transform: none; }
+.js .fx-pop { opacity: 0; transform: scale(0.6); transition: opacity 0.5s ease var(--d, 0s), transform 0.8s var(--back) var(--d, 0s); }
+.js .fxs.in .fx-pop { opacity: 1; transform: none; }
+
+/* route: the road draws, then the pin drops onto it */
+.js .route .rm { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.7s cubic-bezier(0.65, 0, 0.35, 1) 0.7s; }
+.js .fxs.in .route .rm { stroke-dashoffset: 0; }
+.js .route .pin { opacity: 0; transform: translateY(-45px); transition: opacity 0.4s ease 2.1s, transform 0.9s var(--back) 2.1s; }
+.js .fxs.in .route .pin { opacity: 1; transform: none; }
+
+/* guest wishes slide in as they load */
+.wish { animation: wishIn 0.8s var(--out) both; animation-delay: calc(var(--i, 0) * 0.08s); }
+@keyframes wishIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .js .rv { opacity: 1; transform: none; transition: none; }
-  .js .cover .kicker, .js .cover .glass, .js .cover .wreath, .js .cover .btn { animation: none; }
+  .js .fx, .js .fx-card, .js .fx-kids > *, .js .countdown .cell, .js .amp .line, .js .amp .love, .js .fx-track, .js .mask .s-day, .js .mask .f-title,
+  .js .fx-open, .js .fx-wipe, .js .fx-spin, .js .fx-pop, .js .route .pin { opacity: 1; transform: none; clip-path: none; transition: none; letter-spacing: inherit; }
+  .js .fx-track { letter-spacing: 0.9em; }
+  .js .fx-draw :is(path, circle, rect, ellipse), .js .route .rm { stroke-dashoffset: 0; opacity: 1; transition: none; }
+  .js .body .w { color: var(--text); transition: none; }
+  .js .body .gn { background-size: 100% 1px; transition: none; }
+  .js .cover .kicker, .js .cover .glass, .js .cover .wreath, .js .cover .btn, .wish { animation: none; }
   .petal, .shine, .route .road, .music-dock.on .music { animation: none; }
+  .quickbar { transition: none; }
+  .music-dock .music { transition: none; }
 }

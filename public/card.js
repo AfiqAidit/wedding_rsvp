@@ -1,5 +1,6 @@
 "use strict";
 // Builds the invitation from window.CARD (config.js) and wires up all behaviour.
+// Flow: closed cover (only oval + names + Buka) -> tap Buka -> zoom through the oval into the card.
 (() => {
   const C = window.CARD;
   const root = document.getElementById("root");
@@ -19,11 +20,14 @@
     gift: '<rect x="12" y="40" width="76" height="48" rx="3"/><path d="M8 40h84V26H8zM50 26v62M50 26C40 8 22 14 30 26M50 26C60 8 78 14 70 26"/>',
     phone: '<path d="M26 12h14l8 22-10 7c5 11 13 19 24 24l7-10 22 8v14c0 6-5 11-11 11C46 88 12 54 12 24c0-6 6-12 14-12z"/>',
   };
+  // pathLength="1" lets CSS "draw" every stroke in with a single dashoffset transition.
+  const drawable = (s) => s.replace(/<(path|circle|rect|ellipse)\b/g, '<$1 pathLength="1"');
   const emblem = (k) =>
-    `<svg class="emblem" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+    `<svg class="emblem" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${drawable(ICON[k])}</svg>`;
   const small = (k) =>
     `<svg class="ico" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
-  const divider = `<div class="divider" aria-hidden="true"><svg viewBox="0 0 160 22" fill="none" stroke="currentColor"><path d="M6 11H66M94 11H154" stroke-width=".8" stroke-linecap="round"/><ellipse cx="80" cy="11" rx="7" ry="9.5" stroke-width=".9"/><ellipse cx="80" cy="11" rx="4.4" ry="6.6" stroke-width=".6"/></svg></div>`;
+  const divider = `<div class="divider" aria-hidden="true"><svg viewBox="0 0 160 22" fill="none" stroke="currentColor"><path pathLength="1" d="M6 11H66M94 11H154" stroke-width=".8" stroke-linecap="round"/><ellipse pathLength="1" cx="80" cy="11" rx="7" ry="9.5" stroke-width=".9"/><ellipse pathLength="1" cx="80" cy="11" rx="4.4" ry="6.6" stroke-width=".6"/></svg></div>`;
+  const head = (k) => `<div class="fx-draw">${divider}${emblem(k)}</div>`;
 
   /* ------------------------------ links ------------------------------ */
   const start = new Date(C.start), end = new Date(C.end);
@@ -45,15 +49,24 @@
   const wa = "https://wa.me/" + tel.replace(/\D/g, "");
   const deadline = `${C.weekday}, ${C.day} ${C.monthYear}`;
 
+  /* ------------------------------ greeting as words (lit one by one) ------------------------------ */
+  const greet = "Dengan penuh kesyukuran ke hadrat Ilahi, kami dengan segala hormatnya menjemput Tuan/Puan ke majlis perkahwinan {b} dan {g}. Kehadiran serta doa restu Tuan/Puan amatlah kami hargai.";
+  let wi = 0;
+  const greetHtml = greet.split(" ").map((tok) => {
+    const m = tok.match(/^\{(b|g)\}(.*)$/);
+    if (m) return `<span class="w gn" style="--i:${wi++}">${esc(m[1] === "b" ? C.bride : C.groom)}</span>${esc(m[2])}`;
+    return `<span class="w" style="--i:${wi++}">${esc(tok)}</span>`;
+  }).join(" ");
+
   /* ------------------------------ markup ------------------------------ */
-  const SECTIONS = ["Ucapan salam", "Bersama", "Tarikh", "Kod pakaian", "Lokasi", "RSVP", "Ucapan", "Salam Kaut", "Hubungi"];
+  const SECTIONS = 9; // dots: greeting, couple, date, dress, location, rsvp, wishes, salam kaut, contact
 
   root.innerHTML = `
   <div class="paper" aria-hidden="true"><span class="a"></span><span class="b"></span></div>
 
   <header class="cover" id="cover">
     <p class="kicker">${esc(C.kicker)}</p>
-    <div class="frame">
+    <div class="frame" id="frame">
       <div class="glass">
         <h1 class="names">
           <svg class="monogram" viewBox="0 0 96 52" aria-hidden="true"><text x="34" y="42" text-anchor="middle">${esc(C.bride[0])}</text><text x="58" y="42" text-anchor="middle" opacity=".92">${esc(C.groom[0])}</text></svg>
@@ -70,70 +83,74 @@
   </header>
 
   <div class="content" id="content" hidden>
-    <div class="atmos" aria-hidden="true"><span class="glow ga"></span><span class="glow gb"></span><span class="petal p1"></span><span class="petal p2"></span><span class="petal p3"></span><span class="petal p4"></span><span class="petal p5"></span></div>
-    <ol class="dots" aria-hidden="true">${SECTIONS.map(() => "<li></li>").join("")}</ol>
+    <div class="atmos" id="atmos" aria-hidden="true"><span class="glow ga"></span><span class="glow gb"></span><span class="petal p1"></span><span class="petal p2"></span><span class="petal p3"></span><span class="petal p4"></span><span class="petal p5"></span></div>
+    <ol class="dots" aria-hidden="true">${Array.from({ length: SECTIONS }, () => "<li></li>").join("")}</ol>
 
     <div class="sections">
-      <section class="sec" id="s-greet">
-        <p class="eyebrow rv">Assalamualaikum W.B.T. &amp; Salam Sejahtera</p>
-        <p class="body rv" style="--d:.12s">Dengan penuh kesyukuran ke hadrat Ilahi, kami dengan segala hormatnya menjemput Tuan/Puan ke majlis perkahwinan <span class="gn">${esc(C.bride)}</span> dan <span class="gn">${esc(C.groom)}</span>. Kehadiran serta doa restu Tuan/Puan amatlah kami hargai.</p>
+      <section class="sec fxs" id="s-greet">
+        <p class="eyebrow fx" style="--y:30px">Assalamualaikum W.B.T. &amp; Salam Sejahtera</p>
+        <p class="body fx" style="--d:.12s">${greetHtml}</p>
       </section>
 
-      <section class="sec" id="s-couple">
-        <div class="rv">${divider}${emblem("rings")}</div>
-        <h2 class="rv" style="--d:.1s">Bersama kami meraikan</h2>
-        <div class="people rv" style="--d:.2s">
-          <p class="person">${esc(C.bride)}</p>
-          <p class="amp" aria-hidden="true"><span class="line"></span><span class="love">&amp;</span><span class="line"></span></p>
-          <p class="person">${esc(C.groom)}</p>
+      <section class="sec fxs" id="s-couple">
+        ${head("rings")}
+        <h2 class="fx" style="--y:40px;--d:.25s">Bersama kami meraikan</h2>
+        <div class="people">
+          <p class="person fx" style="--y:30px;--d:.4s">${esc(C.bride)}</p>
+          <p class="amp" aria-hidden="true"><span class="line l"></span><span class="love">&amp;</span><span class="line r"></span></p>
+          <p class="person fx" style="--y:30px;--d:.7s">${esc(C.groom)}</p>
         </div>
       </section>
 
-      <section class="sec" id="s-date">
-        <div class="rv">${divider}${emblem("calendar")}</div>
-        <h2 class="rv" style="--d:.1s">Simpan tarikh</h2>
-        <div class="spread rv" style="--d:.15s">
-          <p class="s-kicker">${esc(C.weekday)}</p>
-          <p class="s-day">${esc(C.day)}</p>
-          <p class="s-line">${esc(C.monthYear)}</p>
-          <p class="s-hijri">${esc(C.hijri)}</p>
-          <p class="s-sub">${esc(C.time)}</p>
+      <section class="sec fxs" id="s-date">
+        ${head("calendar")}
+        <h2 class="fx" style="--y:40px;--d:.25s">Simpan tarikh</h2>
+        <div class="spread">
+          <p class="s-kicker fx-track">${esc(C.weekday)}</p>
+          <p class="mask"><span class="s-day">${esc(C.day)}</span></p>
+          <p class="s-line fx-open">${esc(C.monthYear)}</p>
+          <p class="s-hijri fx" style="--y:30px;--d:.9s">${esc(C.hijri)}</p>
+          <p class="s-sub fx" style="--y:30px;--d:1s">${esc(C.time)}</p>
         </div>
-        <div class="countdown rv" id="countdown" style="--d:.2s">
+        <div class="countdown fx-card" id="countdown" style="--d:1.1s">
           <div class="cell"><span class="v" data-u="d">0</span><span class="l">Hari</span></div>
           <div class="cell"><span class="v" data-u="h">0</span><span class="l">Jam</span></div>
           <div class="cell"><span class="v" data-u="m">0</span><span class="l">Minit</span></div>
           <div class="cell"><span class="v" data-u="s">0</span><span class="l">Saat</span></div>
         </div>
-        <div class="actions rv" style="--d:.25s">
+        <div class="actions fx" style="--d:1.4s">
           <a class="btn-o" href="${icsHref}" download="${esc(title.replace(/\W+/g, "-").toLowerCase())}.ics">${small("calendar")}Simpan dalam kalendar</a>
           <a class="btn-o" href="${gcal}" target="_blank" rel="noopener">${small("calendar")}Simpan dalam Google Calendar</a>
         </div>
       </section>
 
-      <section class="sec" id="s-dress">
-        <div class="rv">${divider}${emblem("hanger")}</div>
-        <h2 class="rv" style="--d:.1s">Kod pakaian</h2>
-        <ul class="swatches rv" style="--d:.15s">${C.dressCode.map((c) => `<li><span class="sw" style="background:${esc(c)}"></span></li>`).join("")}</ul>
+      <section class="sec fxs" id="s-dress">
+        ${head("hanger")}
+        <h2 class="fx" style="--y:40px;--d:.25s">Kod pakaian</h2>
+        <ul class="swatches">${C.dressCode.map((c, i) => `<li class="fx-spin" style="--d:${0.5 + i * 0.12}s"><span class="sw" style="background:${esc(c)}"></span></li>`).join("")}</ul>
       </section>
 
-      <section class="sec" id="s-loc">
-        <div class="rv">${divider}${emblem("pin")}</div>
-        <h2 class="rv" style="--d:.1s">Lokasi</h2>
-        <div class="spread rv" style="--d:.15s">
-          <p class="s-venue">${esc(C.venue)}</p>
-          <p class="s-sub">${esc(C.area)}</p>
+      <section class="sec fxs" id="s-loc">
+        ${head("pin")}
+        <h2 class="fx" style="--y:40px;--d:.25s">Lokasi</h2>
+        <div class="spread">
+          <p class="s-venue fx-wipe">${esc(C.venue)}</p>
+          <p class="s-sub fx" style="--y:30px;--d:.75s">${esc(C.area)}</p>
         </div>
-        <svg class="route rv" viewBox="0 0 400 90" fill="none" stroke="currentColor" aria-hidden="true"><path class="road" d="M8 70C70 70 70 22 140 22S210 68 270 62 330 62 352 62" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="2 7"/><path d="M352 62C352 62 340 48 340 40A12 12 0 1 1 364 40C364 48 352 62 352 62ZM352 35A5 5 0 1 0 352.1 35" stroke-width="2.2" stroke-linejoin="round"/></svg>
-        <div class="actions rv" style="--d:.2s">
+        <svg class="route" viewBox="0 0 400 90" fill="none" stroke="currentColor" aria-hidden="true">
+          <defs><mask id="roadMask" maskUnits="userSpaceOnUse" x="0" y="0" width="400" height="90"><path class="rm" pathLength="1" d="M8 70C70 70 70 22 140 22S210 68 270 62 330 62 352 62" stroke="#fff" stroke-width="16" stroke-linecap="butt"/></mask></defs>
+          <path class="road" mask="url(#roadMask)" d="M8 70C70 70 70 22 140 22S210 68 270 62 330 62 352 62" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="2 7"/>
+          <g class="pin"><path d="M352 62C352 62 340 48 340 40A12 12 0 1 1 364 40C364 48 352 62 352 62ZM352 35A5 5 0 1 0 352.1 35" stroke-width="2.2" stroke-linejoin="round"/></g>
+        </svg>
+        <div class="actions fx" style="--d:1.5s">
           <a class="btn-o" href="${mapsHref}" target="_blank" rel="noopener" aria-label="Buka di Google Maps">${small("pin")}Google Maps</a>
         </div>
       </section>
 
-      <section class="sec" id="s-rsvp">
-        <div class="rv">${divider}${emblem("envelope")}</div>
-        <h2 class="rv" style="--d:.1s">RSVP</h2>
-        <form class="card rsvp rv" id="form" style="--d:.15s" novalidate>
+      <section class="sec fxs" id="s-rsvp">
+        ${head("envelope")}
+        <h2 class="fx" style="--y:40px;--d:.25s">RSVP</h2>
+        <form class="card rsvp fx-card fx-kids" id="form" style="--d:.45s" novalidate>
           <p class="muted by">Sila sahkan kehadiran sebelum ${esc(deadline)}.</p>
           <label class="field"><span class="label">Nama</span>
             <input class="input" id="name" name="name" type="text" autocomplete="name" maxlength="80" required />
@@ -162,25 +179,25 @@
           <p class="err" id="formErr" role="alert" hidden></p>
           <button class="btn" id="send" type="submit">Hantar</button>
         </form>
-        <div class="card thanks rv" id="thanks" hidden>
+        <div class="card thanks" id="thanks" hidden>
           <p class="t-title">Terima kasih!</p>
           <p class="muted" id="thanksText"></p>
           <button class="btn-o" id="again" type="button">Hantar maklum balas lain</button>
         </div>
       </section>
 
-      <section class="sec" id="s-wishes">
-        <div class="rv">${divider}${emblem("chat")}</div>
-        <h2 class="rv" style="--d:.1s">Ucapan</h2>
-        <p class="muted rv" id="wishesEmpty" style="--d:.15s">Ucapan daripada tetamu akan dipaparkan di sini.</p>
+      <section class="sec fxs" id="s-wishes">
+        ${head("chat")}
+        <h2 class="fx" style="--y:40px;--d:.25s">Ucapan</h2>
+        <p class="muted fx" id="wishesEmpty" style="--y:30px;--d:.45s">Ucapan daripada tetamu akan dipaparkan di sini.</p>
         <ul class="wishes" id="wishes"></ul>
       </section>
 
-      <section class="sec" id="s-gift">
-        <div class="rv">${divider}${emblem("gift")}</div>
-        <h2 class="rv" style="--d:.1s">Salam Kaut</h2>
-        <p class="muted rv" style="--d:.15s">Kehadiran dan doa anda sudah cukup bermakna. Bagi yang ingin menghulurkan salam kaut, boleh salurkan ke:</p>
-        <div class="card gift rv" style="--d:.2s">
+      <section class="sec fxs" id="s-gift">
+        ${head("gift")}
+        <h2 class="fx" style="--y:40px;--d:.25s">Salam Kaut</h2>
+        <p class="muted fx" style="--d:.4s">Kehadiran dan doa anda sudah cukup bermakna. Bagi yang ingin menghulurkan salam kaut, boleh salurkan ke:</p>
+        <div class="card gift fx-card fx-kids" style="--d:.6s">
           <span class="shine" aria-hidden="true"></span>
           <p><span class="label muted">Bank</span><span class="value">${esc(C.salamKaut.bank)}</span></p>
           <p><span class="label muted">No. akaun</span><span class="value acct">${esc(C.salamKaut.account)}</span></p>
@@ -189,20 +206,20 @@
         </div>
       </section>
 
-      <section class="sec" id="s-contact">
-        <div class="rv">${divider}${emblem("phone")}</div>
-        <h2 class="rv" style="--d:.1s">Untuk sebarang pertanyaan</h2>
-        <ul class="contacts rv" style="--d:.15s">
+      <section class="sec fxs" id="s-contact">
+        ${head("phone")}
+        <h2 class="fx" style="--y:40px;--d:.25s">Untuk sebarang pertanyaan</h2>
+        <ul class="contacts fx" style="--d:.45s">
           <li class="card"><p class="value">${esc(C.contact.name)}</p>
-            <div class="actions row"><a class="btn-s" href="tel:${esc(tel)}">Call</a><a class="btn-s o" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div></li>
+            <div class="actions row"><a class="btn-s fx-pop" style="--d:.9s" href="tel:${esc(tel)}">Call</a><a class="btn-s o fx-pop" style="--d:1.05s" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div></li>
         </ul>
       </section>
 
-      <div class="finale">
-        <p class="thanks-l muted rv">Kehadiran anda amat kami hargai</p>
-        <p class="f-title rv" style="--d:.1s">${esc(C.bride)} &amp; ${esc(C.groom)}</p>
+      <div class="finale fxs" id="s-finale">
+        <p class="thanks-l muted fx" style="--y:24px">Kehadiran anda amat kami hargai</p>
+        <p class="mask"><span class="f-title">${esc(C.bride)} &amp; ${esc(C.groom)}</span></p>
+        <p class="replay fx" style="--d:.9s"><button class="btn-o" id="replay" type="button">Tengok semula dari awal</button></p>
       </div>
-      <p class="replay"><button class="btn-o" id="replay" type="button">Tengok semula dari awal</button></p>
     </div>
 
     <nav class="quickbar" aria-label="Pintasan"><div class="qb-inner">
@@ -221,17 +238,19 @@
     </button>
   </div>`;
 
+  // Stagger indexes for "kids" groups (form fields, gift rows).
+  $$(".fx-kids").forEach((p) => [...p.children].filter((c) => !c.classList.contains("shine")).forEach((c, i) => c.style.setProperty("--i", i)));
+
   /* ------------------------------ wreath ------------------------------ */
   const wreathHost = $("#wreath");
   const img = new Image();
   img.alt = "";
-  img.onload = () => { wreathHost.replaceChildren(img); };
-  img.onerror = () => { wreathHost.replaceChildren(window.buildWreath()); };
-  wreathHost.replaceChildren(window.buildWreath()); // show drawn flowers immediately
-  img.src = C.wreathImage; // swap if a real image exists
+  img.onload = () => wreathHost.replaceChildren(img);
+  wreathHost.replaceChildren(window.buildWreath()); // drawn flowers show immediately
+  img.src = C.wreathImage; // swapped in only if a real image exists (a missing file is silently ignored)
 
-  /* ------------------------------ open / replay ------------------------------ */
-  const content = $("#content"), cover = $("#cover");
+  /* ------------------------------ music ------------------------------ */
+  const content = $("#content"), cover = $("#cover"), dock = $("#dock");
   let audio = null, hasSong = false, playing = false;
 
   fetch(C.song, { method: "HEAD" })
@@ -241,51 +260,126 @@
   function setPlaying(on) {
     playing = on;
     $("#music").setAttribute("aria-pressed", String(on));
-    $("#dock").classList.toggle("on", on);
+    dock.classList.toggle("on", on);
   }
   function play() {
     if (!hasSong) return;
     audio ||= Object.assign(new Audio(C.song), { loop: true });
     audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
   }
-
-  function openCard() {
-    root.dataset.opened = "true";
-    document.body.classList.remove("locked");
-    content.hidden = false;
-    observe();
-    if (hasSong) { $("#dock").hidden = false; play(); }
-    requestAnimationFrame(() => window.scrollTo({ top: cover.offsetHeight, behavior: reduceMotion ? "auto" : "smooth" }));
-  }
-  $("#open").addEventListener("click", openCard);
-
-  $("#replay").addEventListener("click", () => {
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
-    setTimeout(() => {
-      root.dataset.opened = "false";
-      document.body.classList.add("locked");
-      content.hidden = true;
-      $$(".rv.in").forEach((e) => e.classList.remove("in"));
-    }, reduceMotion ? 0 : 800);
-  });
-
   $("#music").addEventListener("click", () => {
     if (!audio) return play();
     if (playing) { audio.pause(); setPlaying(false); } else play();
   });
 
-  /* ------------------------------ reveal + dots ------------------------------ */
+  /* ------------------------------ scroll reveals ------------------------------ */
   let io, so;
   function observe() {
     io?.disconnect(); so?.disconnect();
-    io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.15 });
-    $$(".rv").forEach((e) => io.observe(e));
-    const lis = $$(".dots li");
+    io = new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    }), { threshold: 0.18, rootMargin: "0px 0px -6% 0px" });
+    $$(".fxs").forEach((s) => io.observe(s));
+
+    const lis = $$(".dots li"), secs = $$(".sec");
     so = new IntersectionObserver((es) => es.forEach((e) => {
-      if (e.isIntersecting) { const i = $$(".sec").indexOf(e.target); lis.forEach((l, k) => l.classList.toggle("on", k === i)); }
+      if (e.isIntersecting) { const i = secs.indexOf(e.target); lis.forEach((l, k) => l.classList.toggle("on", k === i)); }
     }), { rootMargin: "-45% 0px -45% 0px" });
-    $$(".sec").forEach((s) => so.observe(s));
+    secs.forEach((s) => so.observe(s));
   }
+  function resetReveals() {
+    io?.disconnect(); so?.disconnect();
+    $$(".fxs.in").forEach((s) => s.classList.remove("in"));
+    $$(".dots li.on").forEach((l) => l.classList.remove("on"));
+  }
+
+  // Scroll-linked parallax for the glows behind the content.
+  const atmos = $("#atmos");
+  let raf = 0;
+  addEventListener("scroll", () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = 0; atmos.style.setProperty("--sy", String(Math.round(scrollY))); });
+  }, { passive: true });
+
+  /* ------------------------------ open / replay ------------------------------ */
+  let state = "closed"; // closed | opening | open | closing
+  const ease = "cubic-bezier(.6,0,.2,1)";
+
+  function openCard() {
+    if (state !== "closed") return;
+    state = "opening";
+    root.dataset.opened = "true";
+    content.hidden = false;
+    window.scrollTo(0, 0);
+    play(); // inside the tap, so browsers allow sound
+
+    if (reduceMotion) {
+      cover.hidden = true;
+      document.body.classList.remove("locked");
+      observe(); root.dataset.ready = "true"; dock.hidden = !hasSong; state = "open";
+      return;
+    }
+
+    // Zoom through the oval: the cover scales up around the oval's centre and dissolves into the card.
+    const fr = $("#frame").getBoundingClientRect(), cr = cover.getBoundingClientRect();
+    cover.style.transformOrigin = `${fr.left + fr.width / 2 - cr.left}px ${fr.top + fr.height / 2 - cr.top}px`;
+    cover.style.pointerEvents = "none";
+
+    $("#open").animate([{ transform: "scale(1)" }, { transform: "scale(.92)" }, { transform: "scale(1)" }], { duration: 240, easing: "ease-out" });
+    for (const el of [$(".kicker", cover), $("#open")]) {
+      el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-14px)" }], { duration: 420, delay: 120, easing: "ease-out", fill: "forwards" });
+    }
+    $("#wreath").animate(
+      [{ transform: "translate(-50%,-50%) scale(1) rotate(0)", opacity: 1 }, { transform: "translate(-50%,-50%) scale(1.3) rotate(5deg)", opacity: 0 }],
+      { duration: 1300, delay: 120, easing: ease, fill: "forwards" },
+    );
+    const zoom = cover.animate(
+      [{ transform: "scale(1)", opacity: 1 }, { transform: "scale(2.6)", opacity: 1, offset: 0.62 }, { transform: "scale(3.4)", opacity: 0 }],
+      { duration: 1900, delay: 120, easing: ease, fill: "forwards" },
+    );
+
+    // The card's first section rises in underneath while the cover is still dissolving.
+    setTimeout(observe, 950);
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      cover.hidden = true;
+      document.body.classList.remove("locked");
+      root.dataset.ready = "true";
+      dock.hidden = !hasSong;
+      state = "open";
+    };
+    zoom.onfinish = finish;
+    setTimeout(finish, 2100); // fallback: never depend on the finish event alone
+  }
+  $("#open").addEventListener("click", openCard);
+
+  function replay() {
+    if (state !== "open") return;
+    state = "closing";
+    root.dataset.ready = "false";
+    dock.hidden = true;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+    setTimeout(() => {
+      document.body.classList.add("locked");
+      cover.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+      cover.hidden = false; // un-hiding also restarts the cover's own entrance animations
+      cover.style.pointerEvents = "";
+      const back = reduceMotion ? null : cover.animate(
+        [{ transform: "scale(3.4)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }],
+        { duration: 1100, easing: "cubic-bezier(.2,.7,.2,1)" },
+      );
+      let finished = false;
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        content.hidden = true; resetReveals(); root.dataset.opened = "false"; state = "closed";
+      };
+      if (back) { back.onfinish = done; setTimeout(done, 1200); } else done();
+    }, reduceMotion ? 0 : 650);
+  }
+  $("#replay").addEventListener("click", replay);
 
   $$(".qb").forEach((b) => b.addEventListener("click", () => $("#" + b.dataset.to).scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" })));
 
@@ -313,7 +407,7 @@
   });
 
   /* ------------------------------ RSVP form ------------------------------ */
-  let attending = null, pax = 1, lastName = "";
+  let attending = null, pax = 1;
   const setPax = (n) => {
     pax = Math.min(C.maxPax, Math.max(1, n));
     $("#pax").textContent = pax;
@@ -349,12 +443,11 @@
         body: JSON.stringify({ name, attending, pax, message: $("#msg").value, website: e.target.website.value }),
       });
       if (!res.ok) throw new Error("server");
-      lastName = name;
       $("#thanksText").textContent = attending
         ? `Kami telah mencatat ${name} untuk ${pax} orang tetamu. Jumpa pada ${C.day} ${C.monthYear.split(" ")[0]}!`
         : `Terima kasih kerana memaklumkan, ${name}. Doa anda amat kami hargai.`;
       $("#form").hidden = true;
-      $("#thanks").hidden = false; $("#thanks").classList.add("in");
+      $("#thanks").hidden = false;
       loadWishes();
     } catch (err) {
       showErr("formErr", err.message === "server" ? "Maaf, penghantaran gagal. Sila cuba lagi." : "Tiada sambungan. Sila semak internet anda dan cuba lagi.");
@@ -368,7 +461,6 @@
     $("#paxField").hidden = true;
     $("#thanks").hidden = true; $("#form").hidden = false; $("#name").focus();
   });
-  void lastName;
 
   /* ------------------------------ wishes ------------------------------ */
   async function loadWishes() {
@@ -376,10 +468,10 @@
       const res = await fetch("/api/wishes");
       if (!res.ok) return;
       const { wishes } = await res.json();
-      const ul = $("#wishes");
-      ul.replaceChildren(...wishes.map((w) => {
+      $("#wishes").replaceChildren(...wishes.map((w, i) => {
         const li = document.createElement("li");
         li.className = "card wish";
+        li.style.setProperty("--i", i);
         const q = document.createElement("p"); q.className = "w-msg"; q.textContent = w.message;
         const n = document.createElement("p"); n.className = "w-name"; n.textContent = w.name;
         li.append(q, n);

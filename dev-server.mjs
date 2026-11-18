@@ -51,7 +51,7 @@ function send(res, { status, body }) {
   res.end(JSON.stringify(body));
 }
 
-http
+const server = http
   .createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
 
@@ -75,5 +75,17 @@ http
     } catch {
       res.writeHead(404, { "Content-Type": "text/plain" }).end("Not found");
     }
-  })
-  .listen(PORT, () => console.log(`RSVP running at http://localhost:${PORT}  (admin: /admin)`));
+  });
+
+// If the port is taken (e.g. another dev server on 3000), try the next ones instead of crashing.
+let port = PORT;
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE" && port < PORT + 20) {
+    console.log(`Port ${port} is in use, trying ${port + 1}...`);
+    server.listen(++port);
+  } else {
+    throw err;
+  }
+});
+server.on("listening", () => console.log(`RSVP running at http://localhost:${port}  (admin: /admin)`));
+server.listen(port);

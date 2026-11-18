@@ -10,11 +10,18 @@ No dependencies, no build step. Node 20+.
 
 ```bash
 cp .env.example .env.local     # set ADMIN_PASSCODE
-npm run dev                    # http://localhost:3000   (PORT=3100 npm run dev for another port)
+npm run dev                    # http://localhost:3000; if that port is busy it uses the next free one (read the printed URL)
 npm test
 ```
 
 With `SUPABASE_URL` empty, responses are saved to `.data/rsvps.json` (git-ignored). Delete `.data/` to reset.
+
+## How it behaves
+
+- **First screen:** only the floral oval, the names and **Buka**. No nav bar, no music button, and the page cannot scroll.
+- **Buka:** the music starts, the cover zooms through the oval and dissolves into the card, the greeting lights up word by word, then the quick-nav bar and the music button slide in.
+- **Scrolling:** each section plays when it comes into view: text rises, dividers and icons draw themselves, the date and finale slide out of a mask, the countdown, RSVP and Salam Kaut cards open outward, the route draws and the pin drops. Glows drift with scroll, petals float, and the side dots track the section.
+- **Tengok semula dari awal** zooms back out to the cover. With "reduce motion" turned on in the phone's settings, everything appears without animation.
 
 ## Change the card
 
