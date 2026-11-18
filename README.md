@@ -40,7 +40,7 @@ Optional assets (the card works without them):
 1. **Supabase:** create a project → SQL Editor → run `supabase.sql`.
    Copy the Project URL and the **service role / secret** key (Settings → API).
 2. **GitHub:** push this folder as its own repo.
-3. **Vercel:** import the repo (Framework preset: *Other*), then add environment variables:
+3. **Vercel:** import the repo. `vercel.json` already tells Vercel this is **not** a framework project (no build step, serve `public/`). If the import screen still shows *Next.js*, change Framework Preset to **Other**. Then add environment variables:
    `ADMIN_PASSCODE`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, optionally `MAX_PAX`.
 4. Open the URL on a phone, press Buka, submit a test RSVP, then check `/admin`.
 
